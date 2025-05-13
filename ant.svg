@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Body segments -->
+    <ellipse cx="50" cy="60" rx="25" ry="20" fill="#1a1a1a"/>
+    <circle cx="50" cy="35" r="15" fill="#1a1a1a"/>
+    
+    <!-- Head -->
+    <circle cx="50" cy="20" r="10" fill="#1a1a1a"/>
+    
+    <!-- Antennae -->
+    <path d="M 45 15 Q 35 5 30 10" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    <path d="M 55 15 Q 65 5 70 10" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    
+    <!-- Legs (3 pairs) -->
+    <!-- Left legs -->
+    <path d="M 30 45 Q 20 45 15 35" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    <path d="M 30 55 Q 15 55 10 50" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    <path d="M 30 65 Q 20 70 15 65" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    
+    <!-- Right legs -->
+    <path d="M 70 45 Q 80 45 85 35" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    <path d="M 70 55 Q 85 55 90 50" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+    <path d="M 70 65 Q 80 70 85 65" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+</svg> 
