@@ -35,11 +35,29 @@ class LangtonAnt {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
 
+    // Create a separate canvas for radius visualization
+    this.radiusCanvas = document.createElement("canvas");
+    this.radiusCanvas.id = "radiusCanvas";
+    this.radiusCanvas.style.position = "absolute";
+    this.radiusCanvas.style.left = "0";
+    this.radiusCanvas.style.top = "0";
+    this.radiusCanvas.style.pointerEvents = "none"; // Allow clicks to pass through
+    this.radiusCanvas.style.transition = "opacity 0.3s ease";
+    this.radiusCtx = this.radiusCanvas.getContext("2d");
+
+    // Insert radius canvas right after the main canvas
+    this.canvas.parentNode.insertBefore(
+      this.radiusCanvas,
+      this.canvas.nextSibling
+    );
+
     // Set up the viewport and world coordinates
     this.viewportWidth = window.innerWidth;
     this.viewportHeight = window.innerHeight;
     this.canvas.width = this.viewportWidth;
     this.canvas.height = this.viewportHeight;
+    this.radiusCanvas.width = this.viewportWidth;
+    this.radiusCanvas.height = this.viewportHeight;
     this.worldOffset = { x: 0, y: 0 }; // Tracks the world position relative to viewport
 
     // Initialize cell and ant properties
@@ -346,7 +364,7 @@ class LangtonAnt {
     };
     controlHeader.appendChild(colonyBtn);
 
-    // Add radius visibility toggle button
+    // Modify radius visibility toggle button
     const radiusToggleBtn = document.createElement("button");
     radiusToggleBtn.className = "icon-button";
     radiusToggleBtn.innerHTML = "👁️";
@@ -354,9 +372,11 @@ class LangtonAnt {
     radiusToggleBtn.onclick = () => {
       this.showSenseRadius = !this.showSenseRadius;
       radiusToggleBtn.style.opacity = this.showSenseRadius ? "1" : "0.5";
+      this.radiusCanvas.style.opacity = this.showSenseRadius ? "1" : "0";
       this.draw();
     };
     radiusToggleBtn.style.opacity = "0.5"; // Start with toggle off
+    this.radiusCanvas.style.opacity = "0"; // Start with radius hidden
     controlHeader.appendChild(radiusToggleBtn);
 
     // Add colony stats to HUD
@@ -545,7 +565,7 @@ class LangtonAnt {
     this.ctx.restore();
   }
 
-  drawCheese(cheese, isPreview = false) {
+  drawCheese(cheese, isPreview = false, drawRadius = true) {
     const screen = this.worldToScreen(cheese.x, cheese.y);
     const size = this.cellSize * 1.5;
 
@@ -567,32 +587,15 @@ class LangtonAnt {
     );
     this.ctx.fill();
 
-    // Only draw scent radius if enabled and not being carried
-    if ((this.showSenseRadius || isPreview) && !cheese.isBeingCarried) {
-      // Draw grid-based radius with gradient
-      const radiusInCells = Math.ceil(cheese.senseRadius);
-      for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
-        for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= cheese.senseRadius) {
-            const cellScreen = this.worldToScreen(cheese.x + dx, cheese.y + dy);
-            const alpha = Math.max(0, 1 - distance / cheese.senseRadius) * 0.15;
-            this.ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
-            this.ctx.fillRect(
-              cellScreen.x,
-              cellScreen.y,
-              this.cellSize,
-              this.cellSize
-            );
-          }
-        }
-      }
+    // Draw preview radius if needed
+    if (isPreview && !cheese.isBeingCarried) {
+      this.drawCheeseRadius(cheese);
     }
 
     this.ctx.restore();
   }
 
-  drawColony(colony, isPreview = false) {
+  drawColony(colony, isPreview = false, drawRadius = true) {
     const screen = this.worldToScreen(colony.x, colony.y);
     const size = this.cellSize * 2;
 
@@ -625,26 +628,9 @@ class LangtonAnt {
     );
     this.ctx.fill();
 
-    // Draw sense radius only if enabled or preview
-    if (this.showSenseRadius || isPreview) {
-      // Draw grid-based radius with gradient
-      const radiusInCells = Math.ceil(colony.senseRadius);
-      for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
-        for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance <= colony.senseRadius) {
-            const cellScreen = this.worldToScreen(colony.x + dx, colony.y + dy);
-            const alpha = Math.max(0, 1 - distance / colony.senseRadius) * 0.15;
-            this.ctx.fillStyle = `rgba(139, 69, 19, ${alpha})`;
-            this.ctx.fillRect(
-              cellScreen.x,
-              cellScreen.y,
-              this.cellSize,
-              this.cellSize
-            );
-          }
-        }
-      }
+    // Draw preview radius if needed
+    if (isPreview) {
+      this.drawColonyRadius(colony);
     }
 
     // Draw cheese count if not preview
@@ -664,17 +650,20 @@ class LangtonAnt {
 
   draw(forceFullRedraw = true) {
     if (forceFullRedraw) {
-      // Full redraw
+      // Full redraw of main canvas
       this.needsFullRedraw = true;
       this.ctx.fillStyle = getComputedStyle(
         document.documentElement
       ).getPropertyValue("--bg-color");
       this.ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
       this.drawGrid();
+
+      // Clear and redraw radius canvas
+      this.radiusCtx.clearRect(0, 0, this.viewportWidth, this.viewportHeight);
     }
 
+    // Draw all visible cells
     if (this.needsFullRedraw) {
-      // Draw all visible cells
       const { x: startX, y: startY } = this.screenToWorld(0, 0);
       const { x: endX, y: endY } = this.screenToWorld(
         this.viewportWidth,
@@ -688,39 +677,18 @@ class LangtonAnt {
           }
         }
       }
-    } else {
-      // Optimized partial redraw of only the dirty region
-      const { minX, minY, maxX, maxY } = this.dirtyRegion;
-      if (minX <= maxX && minY <= maxY) {
-        // Clear the dirty region
-        const start = this.worldToScreen(minX - 1, minY - 1);
-        const end = this.worldToScreen(maxX + 2, maxY + 2);
-        this.ctx.fillStyle = getComputedStyle(
-          document.documentElement
-        ).getPropertyValue("--bg-color");
-        this.ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
-
-        // Redraw grid in dirty region
-        this.drawGridRegion(minX - 1, minY - 1, maxX + 1, maxY + 1);
-
-        // Redraw cells in dirty region
-        for (let x = minX - 1; x <= maxX + 1; x++) {
-          for (let y = minY - 1; y <= maxY + 1; y++) {
-            if (this.isCellBlack(x, y)) {
-              this.drawCell(x, y, this.getCellStepNumber(x, y));
-            }
-          }
-        }
-      }
     }
 
-    // Draw colony
+    // Draw radii on separate canvas
+    this.drawRadii();
+
+    // Draw other elements on main canvas
     if (this.colony) {
-      this.drawColony(this.colony);
+      this.drawColony(this.colony, false, false); // Add false parameter to skip radius
     }
 
     // Draw cheeses
-    this.cheeses.forEach((cheese) => this.drawCheese(cheese));
+    this.cheeses.forEach((cheese) => this.drawCheese(cheese, false, false)); // Add false parameter to skip radius
 
     // Draw ants
     this.ants.forEach((ant) => this.drawAnt(ant));
@@ -730,49 +698,7 @@ class LangtonAnt {
       (this.isPlacementMode || this.isCheeseMode || this.isColonyMode) &&
       this.placementPreviewPos
     ) {
-      const worldPos = this.screenToWorld(
-        this.placementPreviewPos.x,
-        this.placementPreviewPos.y
-      );
-      const previewColor = getComputedStyle(
-        document.documentElement
-      ).getPropertyValue("--text-color");
-
-      if (this.isColonyMode) {
-        const previewColony = new Colony(worldPos.x, worldPos.y);
-        this.drawColony(previewColony, true);
-      } else if (this.isCheeseMode) {
-        const previewCheese = new Cheese(worldPos.x, worldPos.y);
-        this.drawCheese(previewCheese, true);
-      } else {
-        const previewAnt = new Ant(worldPos.x, worldPos.y, 0, previewColor);
-        this.ctx.globalAlpha = 0.5;
-        this.drawAnt(previewAnt);
-        this.ctx.globalAlpha = 1.0;
-      }
-
-      // Draw crosshair
-      const screen = this.worldToScreen(worldPos.x, worldPos.y);
-      this.ctx.strokeStyle = previewColor;
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.moveTo(
-        screen.x + this.cellSize / 2 - 10,
-        screen.y + this.cellSize / 2
-      );
-      this.ctx.lineTo(
-        screen.x + this.cellSize / 2 + 10,
-        screen.y + this.cellSize / 2
-      );
-      this.ctx.moveTo(
-        screen.x + this.cellSize / 2,
-        screen.y + this.cellSize / 2 - 10
-      );
-      this.ctx.lineTo(
-        screen.x + this.cellSize / 2,
-        screen.y + this.cellSize / 2 + 10
-      );
-      this.ctx.stroke();
+      this.drawPlacementPreview();
     }
 
     // Reset dirty region
@@ -780,36 +706,107 @@ class LangtonAnt {
     this.needsFullRedraw = false;
   }
 
-  drawGridRegion(startX, startY, endX, endY) {
-    const start = this.worldToScreen(startX, startY);
-    const end = this.worldToScreen(endX + 1, endY + 1);
+  drawRadii() {
+    // Clear the radius canvas
+    this.radiusCtx.clearRect(0, 0, this.viewportWidth, this.viewportHeight);
 
-    this.ctx.strokeStyle = getComputedStyle(
+    // Draw colony radius
+    if (this.colony) {
+      this.drawColonyRadius(this.colony);
+    }
+
+    // Draw cheese radii
+    this.cheeses.forEach((cheese) => {
+      if (!cheese.isBeingCarried) {
+        this.drawCheeseRadius(cheese);
+      }
+    });
+  }
+
+  drawCheeseRadius(cheese) {
+    const radiusInCells = Math.ceil(cheese.senseRadius);
+    for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
+      for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance <= cheese.senseRadius) {
+          const cellScreen = this.worldToScreen(cheese.x + dx, cheese.y + dy);
+          const alpha = Math.max(0, 1 - distance / cheese.senseRadius) * 0.15;
+          this.radiusCtx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+          this.radiusCtx.fillRect(
+            cellScreen.x,
+            cellScreen.y,
+            this.cellSize,
+            this.cellSize
+          );
+        }
+      }
+    }
+  }
+
+  drawColonyRadius(colony) {
+    const radiusInCells = Math.ceil(colony.senseRadius);
+    for (let dy = -radiusInCells; dy <= radiusInCells; dy++) {
+      for (let dx = -radiusInCells; dx <= radiusInCells; dx++) {
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance <= colony.senseRadius) {
+          const cellScreen = this.worldToScreen(colony.x + dx, colony.y + dy);
+          const alpha = Math.max(0, 1 - distance / colony.senseRadius) * 0.15;
+          this.radiusCtx.fillStyle = `rgba(139, 69, 19, ${alpha})`;
+          this.radiusCtx.fillRect(
+            cellScreen.x,
+            cellScreen.y,
+            this.cellSize,
+            this.cellSize
+          );
+        }
+      }
+    }
+  }
+
+  drawPlacementPreview() {
+    const worldPos = this.screenToWorld(
+      this.placementPreviewPos.x,
+      this.placementPreviewPos.y
+    );
+    const previewColor = getComputedStyle(
       document.documentElement
-    ).getPropertyValue("--grid-color");
-    this.ctx.lineWidth = 0.5;
+    ).getPropertyValue("--text-color");
 
-    // Draw vertical lines
-    for (let x = startX; x <= endX + 1; x++) {
-      const screenX = this.worldToScreen(x, 0).x;
-      if (screenX >= start.x && screenX <= end.x) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(screenX, start.y);
-        this.ctx.lineTo(screenX, end.y);
-        this.ctx.stroke();
-      }
+    if (this.isColonyMode) {
+      const previewColony = new Colony(worldPos.x, worldPos.y);
+      this.drawColony(previewColony, true, false);
+    } else if (this.isCheeseMode) {
+      const previewCheese = new Cheese(worldPos.x, worldPos.y);
+      this.drawCheese(previewCheese, true, false);
+    } else {
+      const previewAnt = new Ant(worldPos.x, worldPos.y, 0, previewColor);
+      this.ctx.globalAlpha = 0.5;
+      this.drawAnt(previewAnt);
+      this.ctx.globalAlpha = 1.0;
     }
 
-    // Draw horizontal lines
-    for (let y = startY; y <= endY + 1; y++) {
-      const screenY = this.worldToScreen(0, y).y;
-      if (screenY >= start.y && screenY <= end.y) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(start.x, screenY);
-        this.ctx.lineTo(end.x, screenY);
-        this.ctx.stroke();
-      }
-    }
+    // Draw crosshair
+    const screen = this.worldToScreen(worldPos.x, worldPos.y);
+    this.ctx.strokeStyle = previewColor;
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(
+      screen.x + this.cellSize / 2 - 10,
+      screen.y + this.cellSize / 2
+    );
+    this.ctx.lineTo(
+      screen.x + this.cellSize / 2 + 10,
+      screen.y + this.cellSize / 2
+    );
+    this.ctx.moveTo(
+      screen.x + this.cellSize / 2,
+      screen.y + this.cellSize / 2 - 10
+    );
+    this.ctx.lineTo(
+      screen.x + this.cellSize / 2,
+      screen.y + this.cellSize / 2 + 10
+    );
+    this.ctx.stroke();
   }
 
   markRegionDirty(x, y) {
@@ -1109,6 +1106,17 @@ class LangtonAnt {
     }
 
     return { x: 0, y: 0 };
+  }
+
+  // Update window resize handler
+  handleResize() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    this.radiusCanvas.width = window.innerWidth;
+    this.radiusCanvas.height = window.innerHeight;
+    this.viewportWidth = canvas.width;
+    this.viewportHeight = canvas.height;
+    this.draw();
   }
 }
 
