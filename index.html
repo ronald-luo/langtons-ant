@@ -4,23 +4,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Langton's Ant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <canvas id="antCanvas"></canvas>
     <div class="hud">
       <div class="hud-header">
-        <div class="hud-title">Langton's Ant</div>
-        <button id="themeToggle" class="theme-toggle" title="Toggle theme">
-          <svg class="sun-icon" viewBox="0 0 24 24">
-            <path
-              d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm0-2V3M12 21v-4M4.22 19.78l2.83-2.83M19.78 19.78l-2.83-2.83M3 12h4M21 12h-4M4.22 4.22l2.83 2.83M19.78 4.22l-2.83 2.83"
-            />
-          </svg>
-          <svg class="moon-icon" viewBox="0 0 24 24">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        </button>
+        <div class="hud-title">
+          <span>Langton's Ant</span>
+          <a
+            href="https://www.ronald-luo.com/blog/100-websites"
+            target="_blank"
+            class="portfolio-link"
+            title="View more projects"
+            >🔗</a
+          >
+        </div>
+        <div class="hud-buttons">
+          <button id="minimizeHUD" class="icon-button" title="Minimize HUD">
+            <svg class="minimize-icon" viewBox="0 0 24 24">
+              <path d="M19 13H5v-2h14v2z" />
+            </svg>
+            <svg class="maximize-icon" viewBox="0 0 24 24">
+              <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </svg>
+          </button>
+          <button id="themeToggle" class="theme-toggle" title="Toggle theme">
+            <svg class="sun-icon" viewBox="0 0 24 24">
+              <path
+                d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm0-2V3M12 21v-4M4.22 19.78l2.83-2.83M19.78 19.78l-2.83-2.83M3 12h4M21 12h-4M4.22 4.22l2.83 2.83M19.78 4.22l-2.83 2.83"
+              />
+            </svg>
+            <svg class="moon-icon" viewBox="0 0 24 24">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="controls">
         <div class="control-group">

@@ -58,7 +58,6 @@ class LangtonAnt {
     this.canvas.height = this.viewportHeight;
     this.radiusCanvas.width = this.viewportWidth;
     this.radiusCanvas.height = this.viewportHeight;
-    this.worldOffset = { x: 0, y: 0 }; // Tracks the world position relative to viewport
 
     // Initialize cell and ant properties
     this.baseSize = 20; // Increased base size for better visibility
@@ -70,10 +69,11 @@ class LangtonAnt {
     this.ants = [new Ant()];
     this.stepCount = 0;
 
-    // Start ant at world coordinate (0,0) which is the center of our infinite world
-    this.antX = 0;
-    this.antY = 0;
-    this.direction = 0; // 0: up, 1: right, 2: down, 3: left
+    // Initialize world offset to center
+    this.worldOffset = {
+      x: this.viewportWidth / 2,
+      y: this.viewportHeight / 2,
+    };
 
     // Color rules
     const isDarkMode =
@@ -436,9 +436,15 @@ class LangtonAnt {
   }
 
   centerView() {
-    // Center the view on the ant
-    this.worldOffset.x = this.viewportWidth / 2;
-    this.worldOffset.y = this.viewportHeight / 2;
+    // Center the view on (0,0)
+    this.worldOffset = {
+      x: this.viewportWidth / 2,
+      y: this.viewportHeight / 2,
+    };
+
+    // Force a full redraw
+    this.needsFullRedraw = true;
+    this.draw();
   }
 
   worldToScreen(worldX, worldY) {
@@ -649,32 +655,31 @@ class LangtonAnt {
   }
 
   draw(forceFullRedraw = true) {
-    if (forceFullRedraw) {
-      // Full redraw of main canvas
-      this.needsFullRedraw = true;
-      this.ctx.fillStyle = getComputedStyle(
-        document.documentElement
-      ).getPropertyValue("--bg-color");
-      this.ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
-      this.drawGrid();
+    // Always clear both canvases completely
+    this.ctx.clearRect(0, 0, this.viewportWidth, this.viewportHeight);
+    this.radiusCtx.clearRect(0, 0, this.viewportWidth, this.viewportHeight);
 
-      // Clear and redraw radius canvas
-      this.radiusCtx.clearRect(0, 0, this.viewportWidth, this.viewportHeight);
-    }
+    // Fill background
+    this.ctx.fillStyle = getComputedStyle(
+      document.documentElement
+    ).getPropertyValue("--bg-color");
+    this.ctx.fillRect(0, 0, this.viewportWidth, this.viewportHeight);
+
+    // Draw grid
+    this.drawGrid();
 
     // Draw all visible cells
-    if (this.needsFullRedraw) {
-      const { x: startX, y: startY } = this.screenToWorld(0, 0);
-      const { x: endX, y: endY } = this.screenToWorld(
-        this.viewportWidth,
-        this.viewportHeight
-      );
+    const { x: startX, y: startY } = this.screenToWorld(0, 0);
+    const { x: endX, y: endY } = this.screenToWorld(
+      this.viewportWidth,
+      this.viewportHeight
+    );
 
-      for (let x = startX - 1; x <= endX + 1; x++) {
-        for (let y = startY - 1; y <= endY + 1; y++) {
-          if (this.isCellBlack(x, y)) {
-            this.drawCell(x, y, this.getCellStepNumber(x, y));
-          }
+    // Draw colored cells
+    for (let x = startX - 1; x <= endX + 1; x++) {
+      for (let y = startY - 1; y <= endY + 1; y++) {
+        if (this.isCellBlack(x, y)) {
+          this.drawCell(x, y, this.getCellStepNumber(x, y));
         }
       }
     }
@@ -684,11 +689,11 @@ class LangtonAnt {
 
     // Draw other elements on main canvas
     if (this.colony) {
-      this.drawColony(this.colony, false, false); // Add false parameter to skip radius
+      this.drawColony(this.colony, false, false);
     }
 
     // Draw cheeses
-    this.cheeses.forEach((cheese) => this.drawCheese(cheese, false, false)); // Add false parameter to skip radius
+    this.cheeses.forEach((cheese) => this.drawCheese(cheese, false, false));
 
     // Draw ants
     this.ants.forEach((ant) => this.drawAnt(ant));
@@ -700,10 +705,6 @@ class LangtonAnt {
     ) {
       this.drawPlacementPreview();
     }
-
-    // Reset dirty region
-    this.resetDirtyRegion();
-    this.needsFullRedraw = false;
   }
 
   drawRadii() {
@@ -979,12 +980,13 @@ class LangtonAnt {
   toggleCell(x, y) {
     const key = this.getCellKey(x, y);
     const currentValue = this.grid.get(key);
-    // Store both the state and the step number when it was changed
-    this.grid.set(key, currentValue ? false : this.stepCount);
+    // Only store true/false for cell state, not step number
+    this.grid.set(key, currentValue ? false : true);
   }
 
   getCellStepNumber(x, y) {
-    return this.grid.get(this.getCellKey(x, y)) || 0;
+    // Return 1 for black cells, 0 for white cells
+    return this.isCellBlack(x, y) ? 1 : 0;
   }
 
   start() {
@@ -1144,6 +1146,13 @@ window.addEventListener("load", () => {
     .getElementById("speed")
     .addEventListener("input", (e) => ant.setSpeed(parseInt(e.target.value)));
 
+  // Add minimize/maximize functionality
+  const hud = document.querySelector(".hud");
+  const minimizeBtn = document.getElementById("minimizeHUD");
+  minimizeBtn.addEventListener("click", () => {
+    hud.classList.toggle("minimized");
+  });
+
   // Handle window resize
   window.addEventListener("resize", () => {
     canvas.width = window.innerWidth;
@@ -1152,4 +1161,7 @@ window.addEventListener("load", () => {
     ant.viewportHeight = canvas.height;
     ant.draw();
   });
+
+  // Start the simulation automatically
+  ant.start();
 });
