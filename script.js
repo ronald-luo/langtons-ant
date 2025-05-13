@@ -208,6 +208,112 @@ class LangtonAnt {
       this.canvas.style.cursor = "grabbing";
     });
 
+    // Add touch event handlers for mobile
+    let lastTouchDistance = 0;
+    let lastTouchCenter = { x: 0, y: 0 };
+
+    this.canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        // Store initial pinch distance and center
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        lastTouchDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+        lastTouchCenter = {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2,
+        };
+      } else if (e.touches.length === 1) {
+        // Single touch for panning
+        const rect = this.canvas.getBoundingClientRect();
+        this.isDragging = true;
+        this.lastMousePos = {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top,
+        };
+      }
+      e.preventDefault();
+    });
+
+    this.canvas.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 2) {
+        // Handle pinch zoom
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        const touchDistance = Math.hypot(
+          touch2.clientX - touch1.clientX,
+          touch2.clientY - touch1.clientY
+        );
+        const touchCenter = {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2,
+        };
+
+        // Calculate zoom factor
+        const zoomFactor = touchDistance / lastTouchDistance;
+        const newZoomLevel = Math.min(
+          this.maxZoom,
+          Math.max(this.minZoom, this.zoomLevel * zoomFactor)
+        );
+
+        if (newZoomLevel !== this.zoomLevel) {
+          // Convert touch center to world coordinates before zoom
+          const worldX = (touchCenter.x - this.worldOffset.x) / this.cellSize;
+          const worldY = (touchCenter.y - this.worldOffset.y) / this.cellSize;
+
+          // Update zoom level
+          this.zoomLevel = newZoomLevel;
+          this.cellSize = this.baseSize * this.zoomLevel;
+
+          // Adjust offset to keep touch center fixed
+          this.worldOffset.x = touchCenter.x - worldX * this.cellSize;
+          this.worldOffset.y = touchCenter.y - worldY * this.cellSize;
+
+          this.draw();
+        }
+
+        lastTouchDistance = touchDistance;
+        lastTouchCenter = touchCenter;
+      } else if (e.touches.length === 1 && this.isDragging) {
+        // Handle single touch pan with improved precision
+        const rect = this.canvas.getBoundingClientRect();
+        const currentX = e.touches[0].clientX - rect.left;
+        const currentY = e.touches[0].clientY - rect.top;
+
+        const dx = currentX - this.lastMousePos.x;
+        const dy = currentY - this.lastMousePos.y;
+
+        // Apply the movement with inertia dampening for smoother motion
+        this.worldOffset.x += dx * 1.0; // Adjust multiplier if needed
+        this.worldOffset.y += dy * 1.0;
+
+        this.lastMousePos = { x: currentX, y: currentY };
+
+        // Request animation frame for smoother updates
+        requestAnimationFrame(() => this.draw());
+      }
+      e.preventDefault();
+    });
+
+    this.canvas.addEventListener("touchend", (e) => {
+      this.isDragging = false;
+      lastTouchDistance = 0;
+      // If no touches left, ensure we stop any ongoing interactions
+      if (e.touches.length === 0) {
+        this.isDragging = false;
+        lastTouchDistance = 0;
+      }
+      e.preventDefault();
+    });
+
+    // Add touchcancel handler for better cleanup
+    this.canvas.addEventListener("touchcancel", () => {
+      this.isDragging = false;
+      lastTouchDistance = 0;
+    });
+
     document.addEventListener("mousemove", (e) => {
       if (this.isColonyMode || this.isCheeseMode || this.isPlacementMode) {
         const rect = this.canvas.getBoundingClientRect();
