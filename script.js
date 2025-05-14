@@ -1079,20 +1079,25 @@ class LangtonAnt {
   }
 
   isCellBlack(x, y) {
+    // const value = this.grid.get(this.getCellKey(x, y));
+    // return value !== undefined && value !== false;
     const value = this.grid.get(this.getCellKey(x, y));
-    return value !== undefined && value !== false;
+    return value !== undefined;
   }
 
   toggleCell(x, y) {
     const key = this.getCellKey(x, y);
-    const currentValue = this.grid.get(key);
-    // Only store true/false for cell state, not step number
-    this.grid.set(key, currentValue ? false : true);
+
+    if (this.grid.has(key)) {
+      this.grid.delete(key);
+    } else {
+      this.grid.set(key, this.stepCount);
+    }
   }
 
   getCellStepNumber(x, y) {
     // Return 1 for black cells, 0 for white cells
-    return this.isCellBlack(x, y) ? 1 : 0;
+    return this.grid.get(this.getCellKey(x, y)) || 0;
   }
 
   start() {
